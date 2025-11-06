@@ -3,12 +3,98 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getWeather as getOpenMeteoWeather } from './providers/openmeteo.js';
 import { getAirQuality } from './providers/openmeteo-air.js'; // NEW
+import fs from 'node:fs';
+import crypto from 'node:crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// NEW: User storage and auth settings
+const DATA_DIR = path.join(__dirname, '..', 'data');
+const USERS_DB = path.join(DATA_DIR, 'users.json');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(USERS_DB)) fs.writeFileSync(USERS_DB, '[]');
+
+const APP_SECRET = process.env.APP_SECRET || 'dev-' + crypto.randomBytes(32).toString('hex');
+const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+function readUsers() {
+  try { return JSON.parse(fs.readFileSync(USERS_DB, 'utf8')); } catch { return []; }
+}
+function writeUsers(users) {
+  fs.writeFileSync(USERS_DB, JSON.stringify(users, null, 2));
+}
+function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const hash = crypto.pbkdf2Sync(password, salt, 120000, 32, 'sha256').toString('hex');
+  return { salt, hash };
+}
+function verifyPassword(password, user) {
+  if (!user?.salt || !user?.passwordHash) return false;
+  const { hash } = hashPassword(password, user.salt);
+  return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(user.passwordHash, 'hex'));
+}
+function b64url(buf) {
+  return Buffer.from(typeof buf === 'string' ? buf : JSON.stringify(buf))
+    .toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+function signToken(payload) {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const body = { ...payload, exp: Date.now() + TOKEN_TTL_MS };
+  const part1 = b64url(header);
+  const part2 = b64url(body);
+  const sig = crypto.createHmac('sha256', APP_SECRET).update(`${part1}.${part2}`).digest('base64')
+    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  return `${part1}.${part2}.${sig}`;
+}
+function verifyToken(token) {
+  try {
+    const [p1, p2, sig] = String(token).split('.');
+    const expected = crypto.createHmac('sha256', APP_SECRET).update(`${p1}.${p2}`).digest('base64')
+      .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+    if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig))) return null;
+    const payload = JSON.parse(Buffer.from(p2.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
+    if (!payload?.exp || Date.now() > payload.exp) return null;
+    return payload;
+  } catch { return null; }
+}
+function parseCookies(req) {
+  const raw = req.headers.cookie || '';
+  return raw.split(';').map(v => v.trim()).filter(Boolean).reduce((acc, cur) => {
+    const i = cur.indexOf('=');
+    if (i > -1) acc[cur.slice(0, i)] = decodeURIComponent(cur.slice(i + 1));
+    return acc;
+  }, {});
+}
+function setAuthCookie(res, token) {
+  const isProd = process.env.NODE_ENV === 'production';
+  const cookie = [
+    `auth=${encodeURIComponent(token)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    isProd ? 'Secure' : '',
+    `Max-Age=${Math.floor(TOKEN_TTL_MS / 1000)}`
+  ].filter(Boolean).join('; ');
+  res.setHeader('Set-Cookie', cookie);
+}
+function clearAuthCookie(res) {
+  const cookie = `auth=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  res.setHeader('Set-Cookie', cookie);
+}
+
+// Attach req.user if cookie present
+app.use((req, _res, next) => {
+  try {
+    const cookies = parseCookies(req);
+    const tok = cookies.auth;
+    const payload = tok ? verifyToken(tok) : null;
+    if (payload?.sub) req.user = { username: payload.sub };
+  } catch {}
+  next();
+});
 
 // Simple in-memory cache: key -> { data, expiresAt }
 const cache = new Map();
@@ -378,6 +464,73 @@ app.get(['/', '/index.html'], (req, res) => {
 
 // Keep static after the root handler so it doesn't shadow the custom pages
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: '1h' }));
+
+// NEW: Auth API
+app.post('/api/auth/register', (req, res) => {
+  try {
+    const { username, password, displayName } = req.body || {};
+    const uname = String(username || '').trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,20}$/.test(uname)) return res.status(400).json({ error: 'Invalid username' });
+    if (String(password || '').length < 6) return res.status(400).json({ error: 'Password too short' });
+
+    const users = readUsers();
+    if (users.find(u => u.username === uname)) return res.status(409).json({ error: 'Username taken' });
+
+    const { salt, hash } = hashPassword(password);
+    const user = {
+      username: uname,
+      displayName: String(displayName || uname),
+      passwordHash: hash,
+      salt,
+      createdAt: new Date().toISOString()
+    };
+    users.push(user);
+    writeUsers(users);
+
+    const token = signToken({ sub: uname });
+    setAuthCookie(res, token);
+    return res.json({ username: user.username, displayName: user.displayName, createdAt: user.createdAt });
+  } catch (e) {
+    console.error('Register error', e);
+    return res.status(500).json({ error: 'Failed to register' });
+  }
+});
+
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    const uname = String(username || '').trim().toLowerCase();
+    const users = readUsers();
+    const user = users.find(u => u.username === uname);
+    if (!user || !verifyPassword(String(password || ''), user)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const token = signToken({ sub: user.username });
+    setAuthCookie(res, token);
+    return res.json({ username: user.username, displayName: user.displayName, createdAt: user.createdAt });
+  } catch (e) {
+    console.error('Login error', e);
+    return res.status(500).json({ error: 'Failed to login' });
+  }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  clearAuthCookie(res);
+  return res.json({ ok: true });
+});
+
+app.get('/api/me', (req, res) => {
+  try {
+    if (!req.user?.username) return res.status(401).json({ error: 'Unauthorized' });
+    const users = readUsers();
+    const user = users.find(u => u.username === req.user.username);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    return res.json({ username: user.username, displayName: user.displayName, createdAt: user.createdAt });
+  } catch (e) {
+    console.error('Me error', e);
+    return res.status(500).json({ error: 'Failed to load profile' });
+  }
+});
 
 app.get('/api/weather', async (req, res) => {
   try {
