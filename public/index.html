@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WeatherHD</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section class="headline">
+        <div class="temp">
+          <span id="icon">⛅</span>
+          <span id="temperature">--</span>
+          <span id="temp-unit">°C</span>
+        </div>
+        <div class="meta">
+          <div id="description">Loading...</div>
+          <div id="hi-lo">H: -- L: --</div>
+          <div id="sun">Sunrise: -- • Sunset: --</div>
+        </div>
+      </section>
+      <section class="details">
+        <div>Wind: <span id="wind">--</span></div>
+        <div>Precip: <span id="precip">--</span></div>
+        <div>Updated: <span id="updated">--</span></div>
+      </section>
+      <section class="strip" id="hourly"></section>
+    </main>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

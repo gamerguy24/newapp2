@@ -1,0 +1,16 @@
+{
+  "name": "weatherhd",
+  "version": "0.1.0",
+  "description": "Modern weather graphics for displays, built on standard web technologies.",
+  "type": "module",
+  "scripts": {
+    "start": "node ./src/server.js",
+    "dev": "NODE_ENV=development node ./src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

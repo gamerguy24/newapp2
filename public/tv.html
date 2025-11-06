@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WeatherHD • TV Layout</title>
+    <link rel="stylesheet" href="./tv.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">WEATHERHD</div>
+      <div class="now">
+        <span id="city">Your Location</span>
+        <span id="clock">--:--</span>
+        <span id="tz"></span>
+      </div>
+    </header>
+
+    <main class="grid">
+      <aside class="panel days" id="days">
+        <!-- 5-day forecast cards injected -->
+      </aside>
+
+      <section class="panel radar">
+        <div class="panel-title">Radar</div>
+        <iframe id="radar" title="Radar" loading="lazy"></iframe>
+      </section>
+
+      <section class="panel current">
+        <div class="panel-title">Current Conditions</div>
+        <div class="current-row">
+          <div class="bigtemp">
+            <span id="cur-icon">⛅</span>
+            <span id="cur-temp">--</span><span id="cur-unit">°C</span>
+          </div>
+          <div class="cur-meta">
+            <div id="cur-desc">Loading...</div>
+            <div id="cur-hilo">H -- / L --</div>
+            <div>Wind: <span id="cur-wind">--</span></div>
+            <div>Sunrise: <span id="cur-sunrise">--</span> • Sunset: <span id="cur-sunset">--</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel tomorrow">
+        <div class="panel-title">Tomorrow</div>
+        <div class="tom-row">
+          <div class="tom-icon" id="tom-icon">⛅</div>
+          <div class="tom-meta">
+            <div class="t">High: <span id="tom-high">--</span></div>
+            <div class="t">Low: <span id="tom-low">--</span></div>
+            <div class="sub" id="tom-desc">--</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel air">
+        <div class="panel-title">Air Quality (US AQI)</div>
+        <div class="aq-row">
+          <div class="aq-badge" id="aq-badge">--</div>
+          <div class="aq-meta">
+            <div class="t">Index: <span id="aq-index">--</span></div>
+            <div class="sub">PM2.5: <span id="aq-pm25">--</span> μg/m³ • PM10: <span id="aq-pm10">--</span> μg/m³</div>
+            <div class="sub" id="aq-time">--</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="ticker">
+      <div class="track" id="ticker-track"></div>
+    </footer>
+
+    <script src="./tv.js" type="module"></script>
+  </body>
+</html>
