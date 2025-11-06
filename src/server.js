@@ -45,7 +45,15 @@ function resolveUnits(req) {
 }
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h' }));
+
+// Redirect root to TV layout (so hosting "/" opens the TV/mobile UI)
+app.get('/', (req, res) => res.redirect(302, '/tv'));
+
+// Serve static without auto index so the redirect above wins
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  index: false,
+  maxAge: '1h'
+}));
 
 app.get('/api/weather', async (req, res) => {
   try {
