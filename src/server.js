@@ -68,7 +68,8 @@ function tvHtml() {
   <style>
     :root{--bg0:#0b1020;--bg1:#111a34;--glass:rgba(255,255,255,.06);--glass-b:rgba(255,255,255,.08);--fg:#e6eef8;--muted:#a8b3c7;--accent:#4fb3ff}
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{height:100%;margin:0;background:radial-gradient(1000px 600px at 10% 0%,#17243f,#0b1020);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+    /* CHANGED: allow scrolling by default to avoid clipped content on some hosts */
+    html,body{height:100%;margin:0;background:radial-gradient(1000px 600px at 10% 0%,#17243f,#0b1020);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:auto;overflow-x:hidden}
     .topbar{display:flex;justify-content:space-between;align-items:center;padding:calc(.5rem + env(safe-area-inset-top)) 1rem .5rem 1rem;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border-bottom:1px solid var(--glass-b)}
     .brand{font-weight:800;letter-spacing:.1em;color:var(--accent)}
     .now{display:flex;gap:1rem;color:var(--muted);font-weight:600}
@@ -614,6 +615,13 @@ app.get(['/tv', '/tv.html'], (req, res) => {
 app.get(['/map', '/map.html'], (req, res) => {
   noStore(res);
   res.type('html').send(mapHtml());
+});
+
+// NEW: catch-all route to serve TV for non-API paths (helps hosting setups)
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
+  noStore(res);
+  return res.type('html').send(tvHtml());
 });
 
 app.listen(PORT, () => {
