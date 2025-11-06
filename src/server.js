@@ -46,14 +46,337 @@ function resolveUnits(req) {
 
 app.use(express.json());
 
-// Redirect root to TV layout (so hosting "/" opens the TV/mobile UI)
-app.get('/', (req, res) => res.redirect(302, '/tv'));
+// Helper to disable caching for inline pages
+function noStore(res) {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+}
 
-// Serve static without auto index so the redirect above wins
-app.use(express.static(path.join(__dirname, '..', 'public'), {
-  index: false,
-  maxAge: '1h'
-}));
+// --- HTML helpers (reuse for /, /tv, /map) ---
+function tvHtml() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <!-- updated for mobile PWA friendliness -->
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1020" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="format-detection" content="telephone=no,email=no,address=no" />
+  <title>Twistcasterlive Media • TV</title>
+  <style>
+    :root{--bg0:#0b1020;--bg1:#111a34;--glass:rgba(255,255,255,.06);--glass-b:rgba(255,255,255,.08);--fg:#e6eef8;--muted:#a8b3c7;--accent:#4fb3ff}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;margin:0;background:radial-gradient(1000px 600px at 10% 0%,#17243f,#0b1020);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+    .topbar{display:flex;justify-content:space-between;align-items:center;padding:calc(.5rem + env(safe-area-inset-top)) 1rem .5rem 1rem;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border-bottom:1px solid var(--glass-b)}
+    .brand{font-weight:800;letter-spacing:.1em;color:var(--accent)}
+    .now{display:flex;gap:1rem;color:var(--muted);font-weight:600}
+    .grid{height:calc(100dvh - 110px);display:grid;grid-template-columns:320px 1fr 420px;grid-template-rows:46% 32% 22%;gap:12px;padding:12px 12px calc(12px + env(safe-area-inset-bottom))}
+    .panel{background:var(--glass);border:1px solid var(--glass-b);border-radius:14px;padding:10px;overflow:hidden}
+    .panel-title{font-size:.9rem;color:var(--muted);margin-bottom:8px;letter-spacing:.06em;text-transform:uppercase}
+    .days{grid-row:1 / span 3;display:grid;grid-auto-rows:1fr;gap:10px}
+    .day{background:rgba(255,255,255,.04);border:1px solid var(--glass-b);border-radius:10px;padding:10px;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:140px}
+    .day .left{display:grid;gap:6px}.day .name{font-weight:700}.day .sub{color:var(--muted);font-size:.9rem}
+    .day .right{text-align:right}.day .icon{font-size:1.6rem}.day .hilo{font-weight:700}
+    .radar iframe{width:100%;height:calc(100% - 22px);border:0;border-radius:10px}
+    .current .current-row{display:grid;grid-template-columns:auto 1fr;gap:16px}
+    .bigtemp{display:flex;align-items:baseline;gap:12px;font-weight:800;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:10px}
+    #cur-icon{font-size:3rem}#cur-temp{font-size:5rem;line-height:.9}#cur-unit{color:var(--muted);font-size:1.4rem}
+    .cur-meta{display:grid;gap:6px}.cur-meta .sub{color:var(--muted)}
+    .tom-row{display:grid;grid-template-columns:auto 1fr;gap:12px}.tom-icon{font-size:3rem}.tom-meta .t{font-weight:700}.tom-meta .sub{color:var(--muted)}
+    .air .aq-row{display:grid;grid-template-columns:120px 1fr;gap:12px}
+    .aq-badge{display:grid;place-items:center;font-weight:800;border-radius:12px;background:rgba(255,255,255,.08);height:100px}
+    .aq-meta .t{font-weight:700}.aq-meta .sub{color:var(--muted)}
+    .alerts{display:grid;grid-template-rows:auto 1fr}
+    .alerts-list{height:100%;overflow:auto;display:grid;gap:8px;padding-right:4px}
+    .alert{background:rgba(255,255,255,.04);border:1px solid var(--glass-b);border-left:6px solid #f39c12;border-radius:10px;padding:8px}
+    .alert .h{font-weight:800} .alert .sub{color:var(--muted);font-size:.9rem}
+    .ticker{height:50px;border-top:1px solid var(--glass-b);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.06));overflow:hidden}
+    .track{display:inline-flex;gap:28px;align-items:center;white-space:nowrap;padding-left:100%;animation:scroll 40s linear infinite}
+    .tag{background:var(--accent);color:#06121f;font-weight:800;padding:6px 10px;border-radius:8px}.tick{color:var(--fg);opacity:.95}
+    @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+    /* reduce motion if requested */
+    @media (prefers-reduced-motion: reduce){.track{animation:none}}
+    /* Mobile layout */
+    @media (max-width: 900px){
+      html,body{overflow:auto}
+      .grid{grid-template-columns:1fr;grid-template-rows:auto;gap:10px;height:auto;min-height:100dvh;padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+      .now{gap:.5rem;font-size:.9rem}
+      .days{grid-row:auto;grid-auto-flow:column;grid-auto-columns:minmax(120px,1fr);grid-auto-rows:unset;overflow-x:auto;padding-bottom:8px}
+      .radar iframe{height:52vh}
+      #cur-icon{font-size:2.2rem}#cur-temp{font-size:3.6rem}#cur-unit{font-size:1.1rem}
+      .ticker{height:36px}
+      .tag{padding:4px 8px}
+    }
+    @media (max-width: 420px){
+      .ticker{display:none}
+      .day{min-width:120px}
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">TWISTCASTERLIVE MEDIA</div>
+    <div class="now">
+      <span id="city">Atlanta, GA</span>
+      <span id="clock">--:--</span>
+      <span id="tz"></span>
+    </div>
+  </header>
+  <main class="grid">
+    <aside class="panel days" id="days"></aside>
+    <section class="panel radar">
+      <div class="panel-title">Radar</div>
+      <iframe id="radar" title="Radar" loading="lazy"></iframe>
+    </section>
+    <section class="panel current">
+      <div class="panel-title">Current Conditions</div>
+      <div class="current-row">
+        <div class="bigtemp"><span id="cur-icon">⛅</span><span id="cur-temp">--</span><span id="cur-unit">°F</span></div>
+        <div class="cur-meta">
+          <div id="cur-desc">Loading...</div>
+          <div id="cur-hilo">H -- / L --</div>
+          <div>Wind: <span id="cur-wind">--</span></div>
+          <div>Sunrise: <span id="cur-sunrise">--</span> • Sunset: <span id="cur-sunset">--</span></div>
+        </div>
+      </div>
+    </section>
+    <section class="panel tomorrow">
+      <div class="panel-title">Tomorrow</div>
+      <div class="tom-row">
+        <div class="tom-icon" id="tom-icon">⛅</div>
+        <div class="tom-meta">
+          <div class="t">High: <span id="tom-high">--</span></div>
+          <div class="t">Low: <span id="tom-low">--</span></div>
+          <div class="sub" id="tom-desc"></div>
+        </div>
+      </div>
+    </section>
+    <section class="panel air">
+      <div class="panel-title">Air Quality (US AQI)</div>
+      <div class="aq-row">
+        <div class="aq-badge" id="aq-badge">--</div>
+        <div class="aq-meta">
+          <div class="t">Index: <span id="aq-index">--</span></div>
+          <div class="sub">PM2.5: <span id="aq-pm25">--</span> μg/m³ • PM10: <span id="aq-pm10">--</span> μg/m³</div>
+          <div class="sub" id="aq-time">--</div>
+        </div>
+      </div>
+    </section>
+    <!-- NEW Alerts panel -->
+    <section class="panel alerts">
+      <div class="panel-title">Weather Alerts (NWS)</div>
+      <div class="alerts-list" id="alerts"></div>
+    </section>
+  </main>
+  <footer class="ticker"><div class="track" id="ticker-track"></div></footer>
+  <script>
+    const DEF = { lat: ${DEFAULT_COORDS.lat}, lon: ${DEFAULT_COORDS.lon}, units: '${DEFAULT_UNITS}' };
+    const qs = (n,f)=>{const v=new URLSearchParams(location.search).get(n);return v??f};
+    const dayName = s => new Date(s).toLocaleDateString([], { weekday:'short' });
+    const hm = s => s ? new Date(s).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '--';
+    const iconFor = c => ({0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',56:'🌧️',57:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',66:'🌧️',67:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',77:'❄️',80:'🌦️',81:'🌦️',82:'⛈️',85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'}[c]||'❓');
+    const coords = { lat: parseFloat(qs('lat', DEF.lat))||DEF.lat, lon: parseFloat(qs('lon', DEF.lon))||DEF.lon };
+    const units = (qs('units','${DEFAULT_UNITS}')||'${DEFAULT_UNITS}').toLowerCase();
+    const state = (qs('state','GA')||'GA').toUpperCase();
+    document.getElementById('city').textContent = \`\${coords.lat.toFixed(2)}, \${coords.lon.toFixed(2)}\`;
+    const zoom = parseInt(qs('zoom','6'),10)||6;
+    const radarSrc = \`https://www.rainviewer.com/map.html?loc=\${coords.lat},\${coords.lon},\${zoom}&oFa=1&oC=1&sm=1&sn=1&layer=radar\`;
+    document.getElementById('radar').src = radarSrc;
+
+    function renderDays(daily, unit) {
+      const el = document.getElementById('days'); el.innerHTML='';
+      for (let i=0;i<Math.min(5,(daily.time||[]).length);i++){
+        const icon = iconFor(daily.weathercode?.[i]??0);
+        const hi = Math.round(daily.temperature_2m_max?.[i]??0);
+        const lo = Math.round(daily.temperature_2m_min?.[i]??0);
+        const name = dayName(daily.time[i]);
+        const div = document.createElement('div'); div.className='day';
+        div.innerHTML = \`
+          <div class="left"><div class="name">\${name}</div><div class="sub">\${icon}</div></div>
+          <div class="right"><div class="icon">\${icon}</div><div class="hilo">\${hi}\${unit} / \${lo}\${unit}</div></div>\`;
+        el.appendChild(div);
+      }
+    }
+    function renderCurrent(data){
+      document.getElementById('cur-icon').textContent = data.current.icon;
+      document.getElementById('cur-temp').textContent = Math.round(data.current.temperature);
+      document.getElementById('cur-unit').textContent = data.current.units.temperature;
+      document.getElementById('cur-desc').textContent = data.current.description;
+      document.getElementById('cur-hilo').textContent = \`H \${Math.round(data.today.high)} / L \${Math.round(data.today.low)}\`;
+      document.getElementById('cur-wind').textContent = \`\${Math.round(data.current.windspeed)} \${data.current.units.windspeed}\`;
+      document.getElementById('cur-sunrise').textContent = hm(data.today.sunrise);
+      document.getElementById('cur-sunset').textContent = hm(data.today.sunset);
+      document.getElementById('tz').textContent = data.location?.timezone || '';
+    }
+    function renderTomorrow(data){
+      const i = (data.raw?.daily?.time?.length||0)>1?1:0;
+      const d = data.raw?.daily || {};
+      const hi = Math.round(d.temperature_2m_max?.[i] ?? data.today.high ?? 0);
+      const lo = Math.round(d.temperature_2m_min?.[i] ?? data.today.low ?? 0);
+      const code = d.weathercode?.[i] ?? 0;
+      document.getElementById('tom-icon').textContent = iconFor(code);
+      document.getElementById('tom-high').textContent = \`\${hi}\${data.current.units.temperature}\`;
+      document.getElementById('tom-low').textContent = \`\${lo}\${data.current.units.temperature}\`;
+    }
+    function severityColor(sev){
+      const s=(sev||'').toLowerCase();
+      if(s.includes('extreme')) return '#7f1d1d';
+      if(s.includes('severe')||s.includes('high')||s.includes('warning')) return '#e74c3c';
+      if(s.includes('moderate')||s.includes('watch')) return '#f39c12';
+      return '#2ecc71';
+    }
+    function renderAlerts(feed){
+      const list=document.getElementById('alerts'); list.innerHTML='';
+      if(!feed || !feed.items || feed.items.length === 0){
+        const div=document.createElement('div'); div.className='alert';
+        div.style.borderLeftColor = '#2ecc71';
+        div.innerHTML = '<div class="h">No active alerts</div><div class="sub">NWS</div>';
+        list.appendChild(div);
+        return;
+      }
+      (feed.items||[]).forEach(it=>{
+        const div=document.createElement('div'); div.className='alert';
+        div.style.borderLeftColor = severityColor(it.severity || it.title || '');
+        const when = it.updated ? new Date(it.updated).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+        div.innerHTML=\`<div class="h">\${it.event || it.title || 'Alert'}</div>
+                        <div class="sub">\${it.areaDesc || ''}</div>
+                        <div class="sub">\${when}</div>\`;
+        list.appendChild(div);
+      });
+    }
+    function buildTicker(data, air, alerts){
+      const items=[];
+      items.push({tag:'Temp',text:\`\${Math.round(data.current.temperature)}\${data.current.units.temperature}\`});
+      items.push({tag:'Wind',text:\`\${Math.round(data.current.windspeed)} \${data.current.units.windspeed}\`});
+      items.push({tag:'Sunrise',text:hm(data.today.sunrise)});
+      items.push({tag:'Sunset',text:hm(data.today.sunset)});
+      if(air?.current?.aqi!=null) items.push({tag:'AQI',text:\`\${air.current.aqi} \${air.current.category}\`});
+      if(alerts?.items?.length){ const top=alerts.items.slice(0,3).map(a=>a.event||a.title); items.push({tag:'ALERT',text:top.join(' • ')}); }
+      const once = items.map(i=>\`<span class="tag">\${i.tag}</span><span class="tick">\${i.text}</span>\`).join('<span>•</span>');
+      document.getElementById('ticker-track').innerHTML = '<div>'+once+'</div><div style="margin-left:48px">'+once+'</div>';
+    }
+    (function tickClock(){
+      const el=document.getElementById('clock');
+      setInterval(()=>{ el.textContent = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}); }, 500);
+    })();
+    async function load(){
+      const wurl=\`/api/weather?lat=\${coords.lat}&lon=\${coords.lon}&units=\${encodeURIComponent(units)}\`;
+      const aurl=\`/api/air?lat=\${coords.lat}&lon=\${coords.lon}\`;
+      // Pass lat/lon and force nocache during testing to avoid stale empty results
+      const alurl=\`/api/alerts?state=\${encodeURIComponent(state)}&lat=\${coords.lat}&lon=\${coords.lon}&nocache=1\`;
+      const [wr,ar,alr]=await Promise.all([fetch(wurl),fetch(aurl).catch(()=>null),fetch(alurl).catch(()=>null)]);
+      if(!wr.ok) return;
+      const weather=await wr.json();
+      const air = ar&&ar.ok ? await ar.json() : null;
+      const alerts = alr&&alr.ok ? await alr.json() : null;
+      renderCurrent(weather); renderDays(weather.raw?.daily||{}, weather.current.units.temperature); renderTomorrow(weather);
+      if(air?.current){
+        const b=document.getElementById('aq-badge'); b.textContent=air.current.category; b.style.background=air.current.color;
+        document.getElementById('aq-index').textContent = air.current.aqi ?? '--';
+        document.getElementById('aq-pm25').textContent = air.current.pm25?.toFixed(1) ?? '--';
+        document.getElementById('aq-pm10').textContent = air.current.pm10?.toFixed(1) ?? '--';
+        document.getElementById('aq-time').textContent = air.current.time ? 'Updated '+hm(air.current.time) : '';
+      }
+      renderAlerts(alerts);
+      buildTicker(weather, air, alerts);
+    }
+    load().catch(console.error);
+    // mobile-aware refresh default to save battery
+    const refreshDefault = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 90000 : 60000;
+    const refreshMs = Math.max(15000, parseInt(qs('refresh', String(refreshDefault)),10)||refreshDefault);
+    setInterval(()=>load().catch(()=>{}), refreshMs);
+  </script>
+</body>
+</html>`;
+}
+
+function mapHtml() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <!-- updated for mobile PWA friendliness -->
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1020" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="format-detection" content="telephone=no,email=no,address=no" />
+  <title>Twistcasterlive Media • Map</title>
+  <style>
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b1020;color:#e6eef8}
+    .wrap{position:fixed;inset:0}
+    iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+    .hud{position:absolute;left:12px;bottom:calc(12px + env(safe-area-inset-bottom));background:rgba(0,0,0,.45);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;max-width:min(92vw, 860px)}
+    .t{font-weight:800;font-size:1.6rem} .sub{opacity:.9}
+    .badge{padding:6px 10px;border-radius:10px;font-weight:800}
+    .row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+    @media (max-width: 900px){.t{font-size:1.3rem}.hud{left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));gap:10px}.badge{padding:4px 8px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <iframe id="radar" title="Radar" loading="lazy"></iframe>
+    <div class="hud">
+      <div class="row">
+        <div class="t"><span id="icon">⛅</span> <span id="temp">--</span><span id="unit">°F</span></div>
+        <div class="sub" id="desc">Loading...</div>
+        <div class="sub">Wind <span id="wind">--</span></div>
+        <div class="sub">H <span id="hi">--</span> / L <span id="lo">--</span></div>
+      </div>
+      <div class="row">
+        <span class="badge" id="aq-badge">AQI --</span>
+        <div class="sub" id="aq-meta"></div>
+        <span class="badge" id="alerts-badge" style="background:#e74c3c">Alerts --</span>
+      </div>
+    </div>
+  </div>
+  <script>
+    const DEF = { lat: ${DEFAULT_COORDS.lat}, lon: ${DEFAULT_COORDS.lon}, units: '${DEFAULT_UNITS}' };
+    const qs=(n,f)=>{const v=new URLSearchParams(location.search).get(n);return v??f};
+    const coords={ lat: parseFloat(qs('lat',DEF.lat))||DEF.lat, lon: parseFloat(qs('lon',DEF.lon))||DEF.lon };
+    const units=(qs('units','${DEFAULT_UNITS}')||'${DEFAULT_UNITS}').toLowerCase();
+    const state=(qs('state','GA')||'GA').toUpperCase();
+    const zoom=parseInt(qs('zoom','6'),10)||6;
+    document.getElementById('radar').src=\`https://www.rainviewer.com/map.html?loc=\${coords.lat},\${coords.lon},\${zoom}&oFa=1&oC=1&sm=1&sn=1&layer=radar\`;
+    async function load(){
+      const wurl=\`/api/weather?lat=\${coords.lat}&lon=\${coords.lon}&units=\${encodeURIComponent(units)}\`;
+      const aurl=\`/api/air?lat=\${coords.lat}&lon=\${coords.lon}\`;
+      const alurl=\`/api/alerts?state=\${encodeURIComponent(state)}&lat=\${coords.lat}&lon=\${coords.lon}&nocache=1\`;
+      const [wr,ar,alr]=await Promise.all([fetch(wurl),fetch(aurl).catch(()=>null),fetch(alurl).catch(()=>null)]);
+      if(!wr.ok) return;
+      const weather=await wr.json(); const air=ar&&ar.ok?await ar.json():null; const alerts=alr&&alr.ok?await alr.json():null;
+      document.getElementById('icon').textContent=weather.current.icon;
+      document.getElementById('temp').textContent=Math.round(weather.current.temperature);
+      document.getElementById('unit').textContent=weather.current.units.temperature;
+      document.getElementById('desc').textContent=weather.current.description;
+      document.getElementById('wind').textContent=\`\${Math.round(weather.current.windspeed)} \${weather.current.units.windspeed}\`;
+      document.getElementById('hi').textContent=Math.round(weather.today.high);
+      document.getElementById('lo').textContent=Math.round(weather.today.low);
+      const badge=document.getElementById('aq-badge'); const meta=document.getElementById('aq-meta');
+      if(air?.current){ badge.textContent=\`AQI \${air.current.aqi} • \${air.current.category}\`; badge.style.background=air.current.color; meta.textContent=\`PM2.5 \${(air.current.pm25??0).toFixed(1)} • PM10 \${(air.current.pm10??0).toFixed(1)}\`; } else { badge.textContent='AQI --'; meta.textContent=''; }
+      const ab=document.getElementById('alerts-badge');
+      if(alerts?.items?.length){ ab.textContent=\`Alerts \${alerts.items.length} • \${alerts.items[0].event || alerts.items[0].title}\`; ab.style.background='#e74c3c'; } else { ab.textContent='Alerts 0'; ab.style.background='#2ecc71'; }
+    }
+    load().catch(console.error);
+    // mobile-aware refresh default to save battery
+    const refreshDefault = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 90000 : 60000;
+    const refreshMs=Math.max(15000, parseInt(qs('refresh', String(refreshDefault)),10)||refreshDefault);
+    setInterval(()=>load().catch(()=>{}), refreshMs);
+  </script>
+</body>
+</html>`;
+}
+
+// --- Routes ---
+// Serve TV at root and index.html explicitly (bypass any static index)
+app.get(['/', '/index.html'], (req, res) => {
+  noStore(res);
+  res.type('html').send(tvHtml());
+});
+
+// Keep static after the root handler so it doesn't shadow the custom pages
+app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: '1h' }));
 
 app.get('/api/weather', async (req, res) => {
   try {
@@ -283,348 +606,14 @@ app.get('/api/alerts', async (req, res) => {
 
 // NEW: TV Layout with radar, forecasts, AQI, Alerts and ticker (inline page)
 app.get(['/tv', '/tv.html'], (req, res) => {
-  res.type('html').send(`<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <!-- updated for mobile PWA friendliness -->
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1020" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="format-detection" content="telephone=no,email=no,address=no" />
-  <title>Twistcasterlive Media • TV</title>
-  <style>
-    :root{--bg0:#0b1020;--bg1:#111a34;--glass:rgba(255,255,255,.06);--glass-b:rgba(255,255,255,.08);--fg:#e6eef8;--muted:#a8b3c7;--accent:#4fb3ff}
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{height:100%;margin:0;background:radial-gradient(1000px 600px at 10% 0%,#17243f,#0b1020);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
-    .topbar{display:flex;justify-content:space-between;align-items:center;padding:calc(.5rem + env(safe-area-inset-top)) 1rem .5rem 1rem;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border-bottom:1px solid var(--glass-b)}
-    .brand{font-weight:800;letter-spacing:.1em;color:var(--accent)}
-    .now{display:flex;gap:1rem;color:var(--muted);font-weight:600}
-    /* use 100dvh to better handle mobile viewport chrome */
-    .grid{height:calc(100dvh - 110px);display:grid;grid-template-columns:320px 1fr 420px;grid-template-rows:46% 32% 22%;gap:12px;padding:12px 12px calc(12px + env(safe-area-inset-bottom))}
-    .panel{background:var(--glass);border:1px solid var(--glass-b);border-radius:14px;padding:10px;overflow:hidden}
-    .panel-title{font-size:.9rem;color:var(--muted);margin-bottom:8px;letter-spacing:.06em;text-transform:uppercase}
-    .days{grid-row:1 / span 3;display:grid;grid-auto-rows:1fr;gap:10px}
-    .day{background:rgba(255,255,255,.04);border:1px solid var(--glass-b);border-radius:10px;padding:10px;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:140px}
-    .day .left{display:grid;gap:6px}.day .name{font-weight:700}.day .sub{color:var(--muted);font-size:.9rem}
-    .day .right{text-align:right}.day .icon{font-size:1.6rem}.day .hilo{font-weight:700}
-    .radar iframe{width:100%;height:calc(100% - 22px);border:0;border-radius:10px}
-    .current .current-row{display:grid;grid-template-columns:auto 1fr;gap:16px}
-    .bigtemp{display:flex;align-items:baseline;gap:12px;font-weight:800;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:10px}
-    #cur-icon{font-size:3rem}#cur-temp{font-size:5rem;line-height:.9}#cur-unit{color:var(--muted);font-size:1.4rem}
-    .cur-meta{display:grid;gap:6px}.cur-meta .sub{color:var(--muted)}
-    .tom-row{display:grid;grid-template-columns:auto 1fr;gap:12px}.tom-icon{font-size:3rem}.tom-meta .t{font-weight:700}.tom-meta .sub{color:var(--muted)}
-    .air .aq-row{display:grid;grid-template-columns:120px 1fr;gap:12px}
-    .aq-badge{display:grid;place-items:center;font-weight:800;border-radius:12px;background:rgba(255,255,255,.08);height:100px}
-    .aq-meta .t{font-weight:700}.aq-meta .sub{color:var(--muted)}
-    .alerts{display:grid;grid-template-rows:auto 1fr}
-    .alerts-list{height:100%;overflow:auto;display:grid;gap:8px;padding-right:4px}
-    .alert{background:rgba(255,255,255,.04);border:1px solid var(--glass-b);border-left:6px solid #f39c12;border-radius:10px;padding:8px}
-    .alert .h{font-weight:800} .alert .sub{color:var(--muted);font-size:.9rem}
-    .ticker{height:50px;border-top:1px solid var(--glass-b);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.06));overflow:hidden}
-    .track{display:inline-flex;gap:28px;align-items:center;white-space:nowrap;padding-left:100%;animation:scroll 40s linear infinite}
-    .tag{background:var(--accent);color:#06121f;font-weight:800;padding:6px 10px;border-radius:8px}.tick{color:var(--fg);opacity:.95}
-    @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-    /* reduce motion if requested */
-    @media (prefers-reduced-motion: reduce){.track{animation:none}}
-    /* Mobile layout */
-    @media (max-width: 900px){
-      html,body{overflow:auto}
-      .grid{grid-template-columns:1fr;grid-template-rows:auto;gap:10px;height:auto;min-height:100dvh;padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
-      .now{gap:.5rem;font-size:.9rem}
-      .days{grid-row:auto;grid-auto-flow:column;grid-auto-columns:minmax(120px,1fr);grid-auto-rows:unset;overflow-x:auto;padding-bottom:8px}
-      .radar iframe{height:52vh}
-      #cur-icon{font-size:2.2rem}#cur-temp{font-size:3.6rem}#cur-unit{font-size:1.1rem}
-      .ticker{height:36px}
-      .tag{padding:4px 8px}
-    }
-    @media (max-width: 420px){
-      .ticker{display:none}
-      .day{min-width:120px}
-    }
-  </style>
-</head>
-<body>
-  <header class="topbar">
-    <div class="brand">TWISTCASTERLIVE MEDIA</div>
-    <div class="now">
-      <span id="city">Atlanta, GA</span>
-      <span id="clock">--:--</span>
-      <span id="tz"></span>
-    </div>
-  </header>
-  <main class="grid">
-    <aside class="panel days" id="days"></aside>
-    <section class="panel radar">
-      <div class="panel-title">Radar</div>
-      <iframe id="radar" title="Radar" loading="lazy"></iframe>
-    </section>
-    <section class="panel current">
-      <div class="panel-title">Current Conditions</div>
-      <div class="current-row">
-        <div class="bigtemp"><span id="cur-icon">⛅</span><span id="cur-temp">--</span><span id="cur-unit">°F</span></div>
-        <div class="cur-meta">
-          <div id="cur-desc">Loading...</div>
-          <div id="cur-hilo">H -- / L --</div>
-          <div>Wind: <span id="cur-wind">--</span></div>
-          <div>Sunrise: <span id="cur-sunrise">--</span> • Sunset: <span id="cur-sunset">--</span></div>
-        </div>
-      </div>
-    </section>
-    <section class="panel tomorrow">
-      <div class="panel-title">Tomorrow</div>
-      <div class="tom-row">
-        <div class="tom-icon" id="tom-icon">⛅</div>
-        <div class="tom-meta">
-          <div class="t">High: <span id="tom-high">--</span></div>
-          <div class="t">Low: <span id="tom-low">--</span></div>
-          <div class="sub" id="tom-desc"></div>
-        </div>
-      </div>
-    </section>
-    <section class="panel air">
-      <div class="panel-title">Air Quality (US AQI)</div>
-      <div class="aq-row">
-        <div class="aq-badge" id="aq-badge">--</div>
-        <div class="aq-meta">
-          <div class="t">Index: <span id="aq-index">--</span></div>
-          <div class="sub">PM2.5: <span id="aq-pm25">--</span> μg/m³ • PM10: <span id="aq-pm10">--</span> μg/m³</div>
-          <div class="sub" id="aq-time">--</div>
-        </div>
-      </div>
-    </section>
-    <!-- NEW Alerts panel -->
-    <section class="panel alerts">
-      <div class="panel-title">Weather Alerts (NWS)</div>
-      <div class="alerts-list" id="alerts"></div>
-    </section>
-  </main>
-  <footer class="ticker"><div class="track" id="ticker-track"></div></footer>
-  <script>
-    const DEF = { lat: ${DEFAULT_COORDS.lat}, lon: ${DEFAULT_COORDS.lon}, units: '${DEFAULT_UNITS}' };
-    const qs = (n,f)=>{const v=new URLSearchParams(location.search).get(n);return v??f};
-    const dayName = s => new Date(s).toLocaleDateString([], { weekday:'short' });
-    const hm = s => s ? new Date(s).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '--';
-    const iconFor = c => ({0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',56:'🌧️',57:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',66:'🌧️',67:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',77:'❄️',80:'🌦️',81:'🌦️',82:'⛈️',85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'}[c]||'❓');
-    const coords = { lat: parseFloat(qs('lat', DEF.lat))||DEF.lat, lon: parseFloat(qs('lon', DEF.lon))||DEF.lon };
-    const units = (qs('units','${DEFAULT_UNITS}')||'${DEFAULT_UNITS}').toLowerCase();
-    const state = (qs('state','GA')||'GA').toUpperCase();
-    document.getElementById('city').textContent = \`\${coords.lat.toFixed(2)}, \${coords.lon.toFixed(2)}\`;
-    const zoom = parseInt(qs('zoom','6'),10)||6;
-    const radarSrc = \`https://www.rainviewer.com/map.html?loc=\${coords.lat},\${coords.lon},\${zoom}&oFa=1&oC=1&sm=1&sn=1&layer=radar\`;
-    document.getElementById('radar').src = radarSrc;
-
-    function renderDays(daily, unit) {
-      const el = document.getElementById('days'); el.innerHTML='';
-      for (let i=0;i<Math.min(5,(daily.time||[]).length);i++){
-        const icon = iconFor(daily.weathercode?.[i]??0);
-        const hi = Math.round(daily.temperature_2m_max?.[i]??0);
-        const lo = Math.round(daily.temperature_2m_min?.[i]??0);
-        const name = dayName(daily.time[i]);
-        const div = document.createElement('div'); div.className='day';
-        div.innerHTML = \`
-          <div class="left"><div class="name">\${name}</div><div class="sub">\${icon}</div></div>
-          <div class="right"><div class="icon">\${icon}</div><div class="hilo">\${hi}\${unit} / \${lo}\${unit}</div></div>\`;
-        el.appendChild(div);
-      }
-    }
-    function renderCurrent(data){
-      document.getElementById('cur-icon').textContent = data.current.icon;
-      document.getElementById('cur-temp').textContent = Math.round(data.current.temperature);
-      document.getElementById('cur-unit').textContent = data.current.units.temperature;
-      document.getElementById('cur-desc').textContent = data.current.description;
-      document.getElementById('cur-hilo').textContent = \`H \${Math.round(data.today.high)} / L \${Math.round(data.today.low)}\`;
-      document.getElementById('cur-wind').textContent = \`\${Math.round(data.current.windspeed)} \${data.current.units.windspeed}\`;
-      document.getElementById('cur-sunrise').textContent = hm(data.today.sunrise);
-      document.getElementById('cur-sunset').textContent = hm(data.today.sunset);
-      document.getElementById('tz').textContent = data.location?.timezone || '';
-    }
-    function renderTomorrow(data){
-      const i = (data.raw?.daily?.time?.length||0)>1?1:0;
-      const d = data.raw?.daily || {};
-      const hi = Math.round(d.temperature_2m_max?.[i] ?? data.today.high ?? 0);
-      const lo = Math.round(d.temperature_2m_min?.[i] ?? data.today.low ?? 0);
-      const code = d.weathercode?.[i] ?? 0;
-      document.getElementById('tom-icon').textContent = iconFor(code);
-      document.getElementById('tom-high').textContent = \`\${hi}\${data.current.units.temperature}\`;
-      document.getElementById('tom-low').textContent = \`\${lo}\${data.current.units.temperature}\`;
-    }
-    function severityColor(sev){
-      const s=(sev||'').toLowerCase();
-      if(s.includes('extreme')) return '#7f1d1d';
-      if(s.includes('severe')||s.includes('high')||s.includes('warning')) return '#e74c3c';
-      if(s.includes('moderate')||s.includes('watch')) return '#f39c12';
-      return '#2ecc71';
-    }
-    function renderAlerts(feed){
-      const list=document.getElementById('alerts'); list.innerHTML='';
-      if(!feed || !feed.items || feed.items.length === 0){
-        const div=document.createElement('div'); div.className='alert';
-        div.style.borderLeftColor = '#2ecc71';
-        div.innerHTML = '<div class="h">No active alerts</div><div class="sub">NWS</div>';
-        list.appendChild(div);
-        return;
-      }
-      (feed.items||[]).forEach(it=>{
-        const div=document.createElement('div'); div.className='alert';
-        div.style.borderLeftColor = severityColor(it.severity || it.title || '');
-        const when = it.updated ? new Date(it.updated).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
-        div.innerHTML=\`<div class="h">\${it.event || it.title || 'Alert'}</div>
-                        <div class="sub">\${it.areaDesc || ''}</div>
-                        <div class="sub">\${when}</div>\`;
-        list.appendChild(div);
-      });
-    }
-    function buildTicker(data, air, alerts){
-      const items=[];
-      items.push({tag:'Temp',text:\`\${Math.round(data.current.temperature)}\${data.current.units.temperature}\`});
-      items.push({tag:'Wind',text:\`\${Math.round(data.current.windspeed)} \${data.current.units.windspeed}\`});
-      items.push({tag:'Sunrise',text:hm(data.today.sunrise)});
-      items.push({tag:'Sunset',text:hm(data.today.sunset)});
-      if(air?.current?.aqi!=null) items.push({tag:'AQI',text:\`\${air.current.aqi} \${air.current.category}\`});
-      if(alerts?.items?.length){ const top=alerts.items.slice(0,3).map(a=>a.event||a.title); items.push({tag:'ALERT',text:top.join(' • ')}); }
-      const once = items.map(i=>\`<span class="tag">\${i.tag}</span><span class="tick">\${i.text}</span>\`).join('<span>•</span>');
-      document.getElementById('ticker-track').innerHTML = '<div>'+once+'</div><div style="margin-left:48px">'+once+'</div>';
-    }
-    (function tickClock(){
-      const el=document.getElementById('clock');
-      setInterval(()=>{ el.textContent = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}); }, 500);
-    })();
-    async function load(){
-      const wurl=\`/api/weather?lat=\${coords.lat}&lon=\${coords.lon}&units=\${encodeURIComponent(units)}\`;
-      const aurl=\`/api/air?lat=\${coords.lat}&lon=\${coords.lon}\`;
-      // Pass lat/lon and force nocache during testing to avoid stale empty results
-      const alurl=\`/api/alerts?state=\${encodeURIComponent(state)}&lat=\${coords.lat}&lon=\${coords.lon}&nocache=1\`;
-      const [wr,ar,alr]=await Promise.all([fetch(wurl),fetch(aurl).catch(()=>null),fetch(alurl).catch(()=>null)]);
-      if(!wr.ok) return;
-      const weather=await wr.json();
-      const air = ar&&ar.ok ? await ar.json() : null;
-      const alerts = alr&&alr.ok ? await alr.json() : null;
-      renderCurrent(weather); renderDays(weather.raw?.daily||{}, weather.current.units.temperature); renderTomorrow(weather);
-      if(air?.current){
-        const b=document.getElementById('aq-badge'); b.textContent=air.current.category; b.style.background=air.current.color;
-        document.getElementById('aq-index').textContent = air.current.aqi ?? '--';
-        document.getElementById('aq-pm25').textContent = air.current.pm25?.toFixed(1) ?? '--';
-        document.getElementById('aq-pm10').textContent = air.current.pm10?.toFixed(1) ?? '--';
-        document.getElementById('aq-time').textContent = air.current.time ? 'Updated '+hm(air.current.time) : '';
-      }
-      renderAlerts(alerts);
-      buildTicker(weather, air, alerts);
-    }
-    load().catch(console.error);
-    // mobile-aware refresh default to save battery
-    const refreshDefault = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 90000 : 60000;
-    const refreshMs = Math.max(15000, parseInt(qs('refresh', String(refreshDefault)),10)||refreshDefault);
-    setInterval(()=>load().catch(()=>{}), refreshMs);
-  </script>
-</body>
-</html>`);
+  noStore(res);
+  res.type('html').send(tvHtml());
 });
 
 // NEW: Full-screen Map (radar-first) layout (inline page)
 app.get(['/map', '/map.html'], (req, res) => {
-  res.type('html').send(`<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <!-- updated for mobile PWA friendliness -->
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1020" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="format-detection" content="telephone=no,email=no,address=no" />
-  <title>Twistcasterlive Media • Map</title>
-  <style>
-    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b1020;color:#e6eef8}
-    .wrap{position:fixed;inset:0}
-    iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-    .hud{position:absolute;left:12px;bottom:calc(12px + env(safe-area-inset-bottom));background:rgba(0,0,0,.45);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;max-width:min(92vw, 860px)}
-    .t{font-weight:800;font-size:1.6rem} .sub{opacity:.9}
-    .badge{padding:6px 10px;border-radius:10px;font-weight:800}
-    .row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
-    /* Mobile: smaller HUD and allow top placement if keyboard overlaps */
-    @media (max-width: 900px){
-      .t{font-size:1.3rem}
-      .hud{left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));gap:10px}
-      .badge{padding:4px 8px}
-    }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <!-- added lazy loading for mobile -->
-    <iframe id="radar" title="Radar" loading="lazy"></iframe>
-    <div class="hud">
-      <div class="row">
-        <div class="t"><span id="icon">⛅</span> <span id="temp">--</span><span id="unit">°F</span></div>
-        <div class="sub" id="desc">Loading...</div>
-        <div class="sub">Wind <span id="wind">--</span></div>
-        <div class="sub">H <span id="hi">--</span> / L <span id="lo">--</span></div>
-      </div>
-      <div class="row">
-        <span class="badge" id="aq-badge">AQI --</span>
-        <div class="sub" id="aq-meta"></div>
-        <!-- NEW Alerts badge -->
-        <span class="badge" id="alerts-badge" style="background:#e74c3c">Alerts --</span>
-      </div>
-    </div>
-  </div>
-  <script>
-    const DEF = { lat: ${DEFAULT_COORDS.lat}, lon: ${DEFAULT_COORDS.lon}, units: '${DEFAULT_UNITS}' };
-    const qs=(n,f)=>{const v=new URLSearchParams(location.search).get(n);return v??f};
-    const coords={ lat: parseFloat(qs('lat',DEF.lat))||DEF.lat, lon: parseFloat(qs('lon',DEF.lon))||DEF.lon };
-    const units=(qs('units','${DEFAULT_UNITS}')||'${DEFAULT_UNITS}').toLowerCase();
-    const state=(qs('state','GA')||'GA').toUpperCase();
-    const zoom=parseInt(qs('zoom','6'),10)||6;
-    const src=\`https://www.rainviewer.com/map.html?loc=\${coords.lat},\${coords.lon},\${zoom}&oFa=1&oC=1&sm=1&sn=1&layer=radar\`;
-    document.getElementById('radar').src=src;
-
-    const iconFor=c=>({0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',56:'🌧️',57:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',66:'🌧️',67:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',77:'❄️',80:'🌦️',81:'🌦️',82:'⛈️',85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'}[c]||'❓');
-
-    async function load(){
-      const wurl=\`/api/weather?lat=\${coords.lat}&lon=\${coords.lon}&units=\${encodeURIComponent(units)}\`;
-      const aurl=\`/api/air?lat=\${coords.lat}&lon=\${coords.lon}\`;
-      // Pass lat/lon and force nocache during testing to avoid stale empty results
-      const alurl=\`/api/alerts?state=\${encodeURIComponent(state)}&lat=\${coords.lat}&lon=\${coords.lon}&nocache=1\`;
-      const [wr,ar,alr]=await Promise.all([fetch(wurl),fetch(aurl).catch(()=>null),fetch(alurl).catch(()=>null)]);
-      if(!wr.ok) return;
-      const weather=await wr.json(); const air=ar&&ar.ok?await ar.json():null; const alerts=alr&&alr.ok?await alr.json():null;
-
-      document.getElementById('icon').textContent=weather.current.icon;
-      document.getElementById('temp').textContent=Math.round(weather.current.temperature);
-      document.getElementById('unit').textContent=weather.current.units.temperature;
-      document.getElementById('desc').textContent=weather.current.description;
-      document.getElementById('wind').textContent=\`\${Math.round(weather.current.windspeed)} \${weather.current.units.windspeed}\`;
-      document.getElementById('hi').textContent=Math.round(weather.today.high);
-      document.getElementById('lo').textContent=Math.round(weather.today.low);
-
-      const badge=document.getElementById('aq-badge');
-      const meta=document.getElementById('aq-meta');
-      if(air?.current){
-        badge.textContent=\`AQI \${air.current.aqi} • \${air.current.category}\`;
-        badge.style.background=air.current.color;
-        meta.textContent=\`PM2.5 \${(air.current.pm25??0).toFixed(1)} • PM10 \${(air.current.pm10??0).toFixed(1)}\`;
-      } else {
-        badge.textContent='AQI --'; meta.textContent='';
-      }
-
-      // NEW: Alerts badge
-      const ab=document.getElementById('alerts-badge');
-      if(alerts?.items?.length){
-        ab.textContent=\`Alerts \${alerts.items.length} • \${alerts.items[0].event || alerts.items[0].title}\`;
-        ab.style.background='#e74c3c';
-      } else {
-        ab.textContent='Alerts 0';
-        ab.style.background='#2ecc71';
-      }
-    }
-    load().catch(console.error);
-    // mobile-aware refresh default to save battery
-    const refreshDefault = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 90000 : 60000;
-    const refreshMs=Math.max(15000, parseInt(qs('refresh', String(refreshDefault)),10)||refreshDefault);
-    setInterval(()=>load().catch(()=>{}), refreshMs);
-  </script>
-</body>
-</html>`);
+  noStore(res);
+  res.type('html').send(mapHtml());
 });
 
 app.listen(PORT, () => {
