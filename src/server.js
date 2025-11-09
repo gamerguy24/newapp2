@@ -245,7 +245,7 @@ function tvHtml() {
     /* Tomorrow bigger */
     .tomorrow{grid-column:2;grid-row:2}
     .tom-row{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}
-    .tom-icon{font-size:4rem}.tom-meta{display:grid;gap:6px}.tom-meta .t{font-weight:700;font-size:1.1rem}.tom-meta .sub{color:var(--muted);font-size:.95rem}
+    .tom-icon{font-size:4rem}.tom-meta{display:grid;gap:6px}.tom-meta .t{font-weight:700;fontsize:1.1rem}.tom-meta .sub{color:var(--muted);font-size:.95rem}
     /* Air bigger */
     .air{grid-column:1;grid-row:2}
     .air .aq-row{display:grid;grid-template-columns:140px 1fr;gap:16px}
@@ -718,14 +718,163 @@ function mapHtml() {
 
 // ADD BACK: minimal team and stream pages so tabs work
 function streamHtml() {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Stream</title><style>html,body{height:100%;margin:0;background:#000} .wrap{height:100%;display:grid;place-items:center;color:#9fb0c5;font-family:system-ui}</style></head>
-  <body><div class="wrap">Configure your stream embed here.</div></body></html>`;
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <title>Stream • Twistcasterlive Media</title>
+  <style>
+    :root{--bg0:#0b1020;--bg1:#111a34;--glass:rgba(255,255,255,.06);--glass-b:rgba(255,255,255,.08);--fg:#e6eef8;--muted:#a8b3c7;--accent:#4fb3ff}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;margin:0;background:radial-gradient(1000px 600px at 10% 0%,#17243f,#0b1020);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .topbar{display:flex;gap:1rem;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:calc(.5rem + env(safe-area-inset-top)) 1rem .5rem 1rem;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border-bottom:1px solid var(--glass-b)}
+    .brand{font-weight:800;letter-spacing:.1em;color:var(--accent)}
+    .nav{display:flex;gap:.6rem;flex-wrap:wrap}
+    .nav a{font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;background:rgba(255,255,255,.06);color:var(--muted);padding:.45rem .7rem;border-radius:8px;text-decoration:none;font-weight:600;transition:.2s}
+    .nav a:hover,.nav a:focus{background:rgba(255,255,255,.12);color:var(--fg)}
+    .nav a.active{background:var(--accent);color:#051627}
+    .content{max-width:1400px;margin:40px auto;padding:0 16px calc(16px + env(safe-area-inset-bottom))}
+    .panel{background:var(--glass);border:1px solid var(--glass-b);border-radius:14px;padding:24px;margin-bottom:20px}
+    h1{font-size:2rem;margin:0 0 16px;color:var(--accent)}
+    p{line-height:1.6;color:var(--muted)}
+    .embed{width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000;border:1px solid var(--glass-b)}
+    .embed iframe{width:100%;height:100%;border:none}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      <div class="brand">TWISTCASTERLIVE MEDIA</div>
+      <nav class="nav">
+        <a href="/tv">Dashboard</a>
+        <a href="/map">Map</a>
+        <a href="/team">Team</a>
+        <a href="/stream" class="active">Stream</a>
+      </nav>
+    </div>
+  </header>
+  <main class="content">
+    <div class="panel">
+      <h1>Live Stream</h1>
+      <div class="embed">
+        <iframe src="https://www.youtube.com/embed/live_stream?channel=UCQvEZ1q0pS4YoaPWGS8DHeg" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    </div>
+  </main>
+</body>
+</html>`;
 }
+
 function teamHtml() {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Team</title><style>body{margin:0;background:#0b1020;color:#e6eef8;font-family:system-ui} .box{max-width:900px;margin:40px auto;padding:16px}</style></head>
-  <body><div class="box"><h1>Team</h1><p>Update team content here.</p></div></body></html>`;
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <title>Team • Twistcasterlive Media</title>
+  <style>
+    :root{--bg0:#0b1020;--bg1:#111a34;--glass:rgba(255,255,255,.06);--glass-b:rgba(255,255,255,.08);--fg:#e6eef8;--muted:#a8b3c7;--accent:#4fb3ff}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{min-height:100%;margin:0;background:radial-gradient(1000px 600px at 10% 0%,#17243f,#0b1020);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .topbar{display:flex;gap:1rem;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:calc(.5rem + env(safe-area-inset-top)) 1rem .5rem 1rem;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border-bottom:1px solid var(--glass-b)}
+    .brand{font-weight:800;letter-spacing:.1em;color:var(--accent)}
+    .nav{display:flex;gap:.6rem;flex-wrap:wrap}
+    .nav a{font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;background:rgba(255,255,255,.06);color:var(--muted);padding:.45rem .7rem;border-radius:8px;text-decoration:none;font-weight:600;transition:.2s}
+    .nav a:hover,.nav a:focus{background:rgba(255,255,255,.12);color:var(--fg)}
+    .nav a.active{background:var(--accent);color:#051627}
+    .content{max-width:1200px;margin:40px auto;padding:0 16px calc(16px + env(safe-area-inset-bottom))}
+    .panel{background:var(--glass);border:1px solid var(--glass-b);border-radius:14px;padding:24px;margin-bottom:20px}
+    h1{font-size:2rem;margin:0 0 16px;color:var(--accent)}
+    h2{font-size:1.3rem;margin:24px 0 12px;color:var(--fg)}
+    p{line-height:1.6;color:var(--muted)}
+    .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:24px}
+    .member{background:rgba(255,255,255,.04);border:1px solid var(--glass-b);border-radius:10px;padding:16px;text-align:center}
+    .member .name{font-weight:700;font-size:1.1rem;color:var(--fg);margin-bottom:4px}
+    .member .role{color:var(--accent);font-size:.9rem;margin-bottom:8px}
+    .member .bio{color:var(--muted);font-size:.85rem;line-height:1.5}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      <div class="brand">TWISTCASTERLIVE MEDIA</div>
+      <nav class="nav">
+        <a href="/tv">Dashboard</a>
+        <a href="/map">Map</a>
+        <a href="/team" class="active">Team</a>
+        <a href="/stream">Stream</a>
+      </nav>
+    </div>
+  </header>
+  <main class="content">
+    <div class="panel">
+      <h1>Our Team</h1>
+      <p>Meet the storm chasers, meteorologists, and media professionals behind Twistcasterlive Media.</p>
+      
+      <h2>Leadership</h2>
+      <div class="team-grid">
+        <div class="member">
+          <div class="name">Nathan Bradley</div>
+          <div class="role">Founder</div>
+          <div class="bio">Founder / Storm Tracker, Meteorologist</div>
+        </div>
+        <div class="member">
+          <div class="name">David Wallis</div>
+          <div class="role">President</div>
+          <div class="bio">Social Media Manager / Coding Specialist</div>
+        </div>
+      </div>
+      
+      <h2>Meteorology Team</h2>
+      <div class="team-grid">
+        <div class="member">
+          <div class="name">Joey Pisani</div>
+          <div class="role">Lead Meteorologist</div>
+          <div class="bio">Weather Forecasting / Analysis</div>
+        </div>
+      </div>
+      
+      <h2>Storm Chasers</h2>
+      <div class="team-grid">
+        <div class="member">
+          <div class="name">Nick Carter</div>
+          <div class="role">Lead Storm Chaser</div>
+          <div class="bio">Field Operations</div>
+        </div>
+        <div class="member">
+          <div class="name">Mandy Jenes</div>
+          <div class="role">Storm Chaser</div>
+          <div class="bio">TCL Media</div>
+        </div>
+        <div class="member">
+          <div class="name">Jesse Perkins</div>
+          <div class="role">Storm Chaser</div>
+          <div class="bio">TCL Media</div>
+        </div>
+        <div class="member">
+          <div class="name">Michael Lynn</div>
+          <div class="role">Storm Chaser</div>
+          <div class="bio">TCL Media</div>
+        </div>
+        <div class="member">
+          <div class="name">Cody Knox</div>
+          <div class="role">Storm Chaser</div>
+          <div class="bio">TCL Media</div>
+        </div>
+      </div>
+      
+      <h2>SpotterNetwork Integration</h2>
+      <p>Our team uses SpotterNetwork to share real-time position data during active weather events. All spotters are registered with unique callsigns and follow NWS reporting protocols.</p>
+      
+      <h2>Contact</h2>
+      <p>For media inquiries, collaboration opportunities, or SpotterNetwork coordination, reach out via your preferred contact method.</p>
+    </div>
+  </main>
+</body>
+</html>`;
 }
 
 // --- Routes ---
