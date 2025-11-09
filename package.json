@@ -11,6 +11,8 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@maptiler/sdk": "^3.8.0",
+    "@maptiler/weather": "^3.1.1",
     "express": "^4.19.2"
   }
 }
