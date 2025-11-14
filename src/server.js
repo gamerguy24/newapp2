@@ -262,15 +262,16 @@ function tvHtml() {
     @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
     @media (prefers-reduced-motion: reduce){.track{animation:none}}
     @media (max-width: 900px){
-      html,body{overflow:auto}
-      .grid{grid-template-columns:1fr;grid-template-rows:auto;gap:6px;height:auto;min-height:100dvh;padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+      html,body{overflow-y:auto;overflow-x:hidden;height:auto}
+      .topbar{position:sticky;top:0;z-index:999;backdrop-filter:blur(10px)}
+      .grid{grid-template-columns:1fr;grid-template-rows:auto;gap:6px;height:auto;min-height:auto;padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
       .now{gap:.4rem;font-size:.7rem}
       .days{grid-row:auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;padding-bottom:6px;padding-right:0}
       .day{min-width:120px;min-height:60px;padding:6px}
       #cur-icon{font-size:2rem}#cur-temp{font-size:2.5rem}#cur-unit{font-size:1rem}
       .tom-icon{font-size:2rem}
       .aq-badge{height:70px;font-size:.8rem}
-      .ticker{height:32px}
+      .ticker{height:32px;position:sticky;bottom:0}
       .tag{padding:3px 6px}
     }
     @media (max-width: 420px){
