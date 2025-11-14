@@ -279,6 +279,26 @@ function tvHtml() {
       .ticker{display:none}
       .day{min-width:110px}
     }
+
+    /* Mirror horizontal scrollbar (hidden on desktop) */
+    #hscroll{display:none}
+    #hscroll .hinner{height:12px;overflow-x:auto;overflow-y:hidden}
+    #hscroll .hinner > div{height:1px}
+
+    @media (max-width: 900px){
+      /* enable vertical scrolling of main grid on mobile */
+      .grid{overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+      /* always show a visible horizontal scrollbar for days on mobile */
+      .days{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
+      .days::-webkit-scrollbar{height:8px}
+      .days::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:6px}
+      .days::-webkit-scrollbar-track{background:transparent}
+
+      /* show the mirrored scrollbar just above the ticker */
+      #hscroll{display:block;position:sticky;bottom:40px;z-index:998;padding:4px 8px;background:transparent}
+      #hscroll .hinner{width:100%;border-radius:6px}
+    }
   </style>
 </head>
 <body>
@@ -339,6 +359,10 @@ function tvHtml() {
       <div class="alerts-list" id="alerts"></div>
     </section>
   </main>
+
+  <!-- mirrored horizontal scrollbar for mobile (syncs with #days) -->
+  <div id="hscroll" aria-hidden="true"><div class="hinner"><div id="hscroll-inner"></div></div></div>
+
   <footer class="ticker"><div class="track" id="ticker-track"></div></footer>
   <script type="module">
     // REMOVED: all MapTiler map code (no radar on dashboard)
@@ -449,6 +473,32 @@ function tvHtml() {
       buildTicker(weather, air, alerts);
     }
 
+    // NEW: sync mirrored horizontal scrollbar with #days on mobile
+    (function setupMirroredScrollbar(){
+      const days = document.getElementById('days');
+      const hinner = document.getElementById('hscroll-inner');
+      const hscroll = document.querySelector('#hscroll .hinner');
+      if(!days || !hinner || !hscroll) return;
+
+      function updateInnerWidth(){
+        // set inner width equal to the scrollWidth of days so scrollbar size matches
+        hinner.style.width = (days.scrollWidth || days.offsetWidth) + 'px';
+      }
+
+      // sync scroll from days -> mirrored
+      days.addEventListener('scroll', ()=>{ hscroll.scrollLeft = days.scrollLeft; });
+
+      // sync scroll from mirrored -> days
+      hscroll.addEventListener('scroll', ()=>{ days.scrollLeft = hscroll.scrollLeft; });
+
+      // update sizes after content changes and on resize
+      const ro = new ResizeObserver(()=> updateInnerWidth());
+      ro.observe(days);
+      window.addEventListener('resize', updateInnerWidth);
+      // initial
+      setTimeout(updateInnerWidth, 100);
+    })();
+
     load().catch(console.error);
     const refreshDefault=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?90000:60000;
     const refreshMs=Math.max(15000, parseInt(qs('refresh', String(refreshDefault)),10)||refreshDefault);
@@ -458,7 +508,6 @@ function tvHtml() {
 </html>`;
 }
 
-// FIX: mapHtml now becomes the full radar view (no leftover Leaflet code)
 function mapHtml() {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -796,6 +845,16 @@ function teamHtml() {
     .member .name{font-weight:700;font-size:1.1rem;color:var(--fg);margin-bottom:4px}
     .member .role{color:var(--accent);font-size:.9rem;margin-bottom:8px}
     .member .bio{color:var(--muted);font-size:.85rem;line-height:1.5}
+
+    /* Make team content scrollable on small screens so all members are reachable */
+    @media (max-width: 900px){
+      .content{
+        max-height: calc(100dvh - 64px); /* leave room for sticky topbar */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: calc(16px + env(safe-area-inset-bottom));
+      }
+    }
   </style>
 </head>
 <body>
