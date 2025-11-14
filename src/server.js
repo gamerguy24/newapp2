@@ -224,60 +224,110 @@ function tvHtml() {
     .nav a:hover,.nav a:focus{background:rgba(255,255,255,.12);color:var(--fg)}
     .nav a.active{background:var(--accent);color:#051627}
     .now{display:flex;gap:.5rem;color:var(--muted);font-weight:600;font-size:.75rem}
-    /* Compact 2-row grid with smaller gaps */
-    .grid{height:calc(100dvh - 70px);display:grid;grid-template-columns:280px 1fr;grid-template-rows:1fr 1fr;gap:8px;padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+    
+    /* NEW: Single column layout with vertical scroll */
+    .grid{
+      height:calc(100dvh - 70px);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+    
     .panel{background:var(--glass);border:1px solid var(--glass-b);border-radius:10px;padding:8px;overflow:hidden}
     .panel-title{font-size:.75rem;color:var(--muted);margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase;font-weight:600}
-    /* Days now scrollable, spans both rows - more compact */
-    .days{grid-row:1 / span 2;display:flex;flex-direction:column;gap:6px;overflow-y:auto;padding-right:4px}
-    .days::-webkit-scrollbar{width:4px}
+    
+    /* 7-day forecast: horizontal scrollable strip */
+    .days{
+      display:flex;
+      flex-direction:row;
+      gap:6px;
+      overflow-x:auto;
+      overflow-y:hidden;
+      padding-bottom:6px;
+      -webkit-overflow-scrolling:touch;
+    }
+    .days::-webkit-scrollbar{height:8px}
     .days::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:4px}
-    .days::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:4px}
+    .days::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:6px}
     .days::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.25)}
-    .day{background:rgba(255,255,255,.04);border:1px solid var(--glass-b);border-radius:8px;padding:8px;display:grid;grid-template-columns:1fr auto;align-items:center;min-height:70px}
-    .day .left{display:grid;gap:4px}.day .name{font-weight:700;font-size:.85rem}.day .sub{color:var(--muted);font-size:.75rem}
-    .day .right{text-align:right}.day .icon{font-size:1.5rem}.day .hilo{font-weight:700;font-size:.9rem}
-    /* Current more compact */
+    
+    .day{
+      background:rgba(255,255,255,.04);
+      border:1px solid var(--glass-b);
+      border-radius:8px;
+      padding:8px;
+      min-width:120px;
+      flex-shrink:0;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      align-items:center;
+      text-align:center;
+    }
+    .day .name{font-weight:700;font-size:.85rem}
+    .day .icon{font-size:2rem;margin:4px 0}
+    .day .hilo{font-weight:700;font-size:.9rem;color:var(--muted)}
+    
+    /* Current conditions */
     .current .current-row{display:grid;grid-template-columns:auto 1fr;gap:12px}
     .bigtemp{display:flex;align-items:baseline;gap:10px;font-weight:800;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:10px}
-    #cur-icon{font-size:2.5rem}#cur-temp{font-size:3.5rem;line-height:.9}#cur-unit{color:var(--muted);font-size:1.2rem}
-    .cur-meta{display:grid;gap:4px;font-size:.8rem}.cur-meta .sub{color:var(--muted)}
-    /* Tomorrow more compact */
-    .tomorrow{grid-column:2;grid-row:2}
-    .tom-row{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center}
-    .tom-icon{font-size:2.5rem}.tom-meta{display:grid;gap:4px}.tom-meta .t{font-weight:700;font-size:.85rem}.tom-meta .sub{color:var(--muted);font-size:.75rem}
-    /* Air more compact */
-    .air{grid-column:1;grid-row:2}
+    #cur-icon{font-size:2.5rem}
+    #cur-temp{font-size:3.5rem;line-height:.9}
+    #cur-unit{color:var(--muted);font-size:1.2rem}
+    .cur-meta{display:grid;gap:4px;font-size:.8rem}
+    .cur-meta .sub{color:var(--muted)}
+    
+    /* Air quality */
     .air .aq-row{display:grid;grid-template-columns:100px 1fr;gap:10px}
     .aq-badge{display:grid;place-items:center;font-weight:800;border-radius:10px;background:rgba(255,255,255,.08);height:80px;font-size:.9rem}
-    .aq-meta{display:grid;gap:4px}.aq-meta .t{font-weight:700;font-size:.8rem}.aq-meta .sub{color:var(--muted);font-size:.7rem}
-    /* Alerts more compact */
+    .aq-meta{display:grid;gap:4px}
+    .aq-meta .t{font-weight:700;font-size:.8rem}
+    .aq-meta .sub{color:var(--muted);font-size:.7rem}
+    
+    /* Tomorrow forecast */
+    .tomorrow .tom-row{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center}
+    .tom-icon{font-size:2.5rem}
+    .tom-meta{display:grid;gap:4px}
+    .tom-meta .t{font-weight:700;font-size:.85rem}
+    .tom-meta .sub{color:var(--muted);font-size:.75rem}
+    
+    /* Alerts */
     .alerts{display:grid;grid-template-rows:auto 1fr}
-    .alerts-list{height:100%;overflow:auto;display:grid;gap:6px;padding-right:4px}
+    .alerts-list{max-height:200px;overflow:auto;display:grid;gap:6px;padding-right:4px}
     .alert{background:rgba(255,255,255,.04);border:1px solid var(--glass-b);border-left:4px solid #f39c12;border-radius:8px;padding:6px}
-    .alert .h{font-weight:800;font-size:.75rem} .alert .sub{color:var(--muted);font-size:.7rem}
+    .alert .h{font-weight:800;font-size:.75rem}
+    .alert .sub{color:var(--muted);font-size:.7rem}
+    
     .ticker{height:40px;border-top:1px solid var(--glass-b);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.06));overflow:hidden}
     .track{display:inline-flex;gap:20px;align-items:center;white-space:nowrap;padding-left:100%;animation:scroll 40s linear infinite;font-size:.8rem}
-    .tag{background:var(--accent);color:#06121f;font-weight:800;padding:4px 8px;border-radius:6px;font-size:.7rem}.tick{color:var(--fg);opacity:.95}
+    .tag{background:var(--accent);color:#06121f;font-weight:800;padding:4px 8px;border-radius:6px;font-size:.7rem}
+    .tick{color:var(--fg);opacity:.95}
+    
     @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
     @media (prefers-reduced-motion: reduce){.track{animation:none}}
+    
     @media (max-width: 900px){
       html,body{overflow-y:auto;overflow-x:hidden;height:auto}
       .topbar{position:sticky;top:0;z-index:999;backdrop-filter:blur(10px)}
-      .grid{grid-template-columns:1fr;grid-template-rows:auto;gap:6px;height:auto;min-height:auto;padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+      .grid{height:auto;min-height:auto}
       .now{gap:.4rem;font-size:.7rem}
-      .days{grid-row:auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;padding-bottom:6px;padding-right:0}
-      .day{min-width:120px;min-height:60px;padding:6px}
-      #cur-icon{font-size:2rem}#cur-temp{font-size:2.5rem}#cur-unit{font-size:1rem}
+      .day{min-width:110px;padding:6px}
+      #cur-icon{font-size:2rem}
+      #cur-temp{font-size:2.5rem}
+      #cur-unit{font-size:1rem}
       .tom-icon{font-size:2rem}
       .aq-badge{height:70px;font-size:.8rem}
       .ticker{height:32px;position:sticky;bottom:0}
       .tag{padding:3px 6px}
     }
+    
     @media (max-width: 420px){
       .nav{width:100%}
       .ticker{display:none}
-      .day{min-width:110px}
+      .day{min-width:100px}
     }
 
     /* Mirror horizontal scrollbar (hidden on desktop) */
@@ -286,15 +336,6 @@ function tvHtml() {
     #hscroll .hinner > div{height:1px}
 
     @media (max-width: 900px){
-      /* enable vertical scrolling of main grid on mobile */
-      .grid{overflow-y:auto;-webkit-overflow-scrolling:touch}
-
-      /* always show a visible horizontal scrollbar for days on mobile */
-      .days{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
-      .days::-webkit-scrollbar{height:8px}
-      .days::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:6px}
-      .days::-webkit-scrollbar-track{background:transparent}
-
       /* show the mirrored scrollbar just above the ticker */
       #hscroll{display:block;position:sticky;bottom:40px;z-index:998;padding:4px 8px;background:transparent}
       #hscroll .hinner{width:100%;border-radius:6px}
@@ -319,7 +360,6 @@ function tvHtml() {
     </div>
   </header>
   <main class="grid">
-    <aside class="panel days" id="days"></aside>
     <section class="panel current">
       <div class="panel-title">Current Conditions</div>
       <div class="current-row">
@@ -332,6 +372,7 @@ function tvHtml() {
         </div>
       </div>
     </section>
+    
     <section class="panel air">
       <div class="panel-title">Air Quality (US AQI)</div>
       <div class="aq-row">
@@ -343,6 +384,12 @@ function tvHtml() {
         </div>
       </div>
     </section>
+    
+    <section class="panel">
+      <div class="panel-title">7-Day Forecast</div>
+      <div class="days" id="days"></div>
+    </section>
+    
     <section class="panel tomorrow">
       <div class="panel-title">Tomorrow</div>
       <div class="tom-row">
@@ -354,6 +401,7 @@ function tvHtml() {
         </div>
       </div>
     </section>
+    
     <section class="panel alerts">
       <div class="panel-title">Weather Alerts (NWS)</div>
       <div class="alerts-list" id="alerts"></div>
@@ -377,7 +425,7 @@ function tvHtml() {
     const hm = s => s ? new Date(s).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '--';
     const iconFor = c => ({0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',56:'🌧️',57:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',66:'🌧️',67:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',77:'❄️',80:'🌦️',81:'🌦️',82:'⛈️',85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'}[c]||'❓');
 
-    // Render 7 days (scrollable)
+    // Render 7 days (horizontal scrollable)
     function renderDays(daily, unit){
       const el=document.getElementById('days'); el.innerHTML='';
       const times=daily.time||[];
@@ -387,8 +435,9 @@ function tvHtml() {
         const hi=Math.round(daily.temperature_2m_max?.[i]??0);
         const lo=Math.round(daily.temperature_2m_min?.[i]??0);
         const div=document.createElement('div'); div.className='day';
-        div.innerHTML=\`<div class="left"><div class="name">\${dayName(times[i])}</div><div class="sub">\${icon}</div></div>
-                        <div class="right"><div class="icon">\${icon}</div><div class="hilo">\${hi}\${unit} / \${lo}\${unit}</div></div>\`;
+        div.innerHTML=\`<div class="name">\${dayName(times[i])}</div>
+                        <div class="icon">\${icon}</div>
+                        <div class="hilo">\${hi}\${unit} / \${lo}\${unit}</div>\`;
         el.appendChild(div);
       }
     }
